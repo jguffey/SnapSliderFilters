@@ -8,6 +8,7 @@
 
 import UIKit
 import SnapSliderFilters
+import MobileCoreServices
 
 class ViewController: UIViewController {
     
@@ -19,7 +20,7 @@ class ViewController: UIViewController {
     fileprivate let buttonSave = SNButton(frame: CGRect(x: 20, y: SNUtils.screenSize.height - 35, width: 33, height: 30), withImageNamed: "saveButton")
     fileprivate let buttonCamera = SNButton(frame: CGRect(x: 75, y: SNUtils.screenSize.height - 42, width: 45, height: 45), withImageNamed: "galleryButton")
     fileprivate let imagePicker = UIImagePickerController()
-    fileprivate var data:[SNFilter] = []
+    fileprivate var data:[Any] = []
     
     //MARK: Overriden functions
     override func viewDidLoad() {
@@ -90,6 +91,7 @@ class ViewController: UIViewController {
             
             if let tmpImagePicker = weakSelf?.imagePicker {
                 tmpImagePicker.allowsEditing = false
+                tmpImagePicker.mediaTypes = [kUTTypeMovie as String, kUTTypeImage as String ]
                 tmpImagePicker.sourceType = .photoLibrary
                 
                 weakSelf?.present(tmpImagePicker, animated: true, completion: nil)
@@ -104,13 +106,47 @@ class ViewController: UIViewController {
     fileprivate func createData(_ image: UIImage) {
         self.data = SNFilter.generateFilters(SNFilter(frame: self.slider.frame, withImage: image), filters: SNFilter.filterNameList)
         
-        self.data[1].addSticker(SNSticker(frame: CGRect(x: 195, y: 30, width: 90, height: 90), image: UIImage(named: "stick2")!))
-        self.data[2].addSticker(SNSticker(frame: CGRect(x: 30, y: 100, width: 250, height: 250), image: UIImage(named: "stick3")!))
-        self.data[3].addSticker(SNSticker(frame: CGRect(x: 20, y: 00, width: 140, height: 140), image: UIImage(named: "stick")!))
+        let stickers = [
+            SNSticker(frame: CGRect(x: 195, y: 30, width: 90, height: 90), image: UIImage(named: "stick2")!),
+            SNSticker(frame: CGRect(x: 30, y: 100, width: 250, height: 250), image: UIImage(named: "stick3")!),
+            SNSticker(frame: CGRect(x: 20, y: 00, width: 140, height: 140), image: UIImage(named: "stick")!)
+        ]
+       
+        var i = 0
+        while i <= data.count {
+            if let filter = data[i] as? SNFilter {
+                filter.addSticker(stickers[i % stickers.count])
+            }
+            i = i + 1
+        }
+    }
+    
+    fileprivate func createData(withVideo video: NSURL) {
+        // Little awkward as the picker gives us an NSURL, but easy to convert to URL.
+        self.data = SNVideoFilter.generateFilters(SNVideoFilter(frame: self.slider.frame, withVideoAt: video as URL), filters: SNFilter.filterNameList)
+        
+        let stickers = [
+            SNSticker(frame: CGRect(x: 195, y: 30, width: 90, height: 90), image: UIImage(named: "stick2")!),
+            SNSticker(frame: CGRect(x: 30, y: 100, width: 250, height: 250), image: UIImage(named: "stick3")!),
+            SNSticker(frame: CGRect(x: 20, y: 00, width: 140, height: 140), image: UIImage(named: "stick")!)
+        ]
+        
+        var i = 0
+        while i <= data.count {
+            if let filter = data[i] as? SNVideoFilter {
+                filter.addSticker(stickers[i % stickers.count])
+            }
+            i = i + 1
+        }
     }
     
     fileprivate func updatePicture(_ newImage: UIImage) {
         createData(newImage)
+        slider.reloadData()
+    }
+    
+    fileprivate func updateVideo(_ newVideoLocation: NSURL) {
+        createData(withVideo: newVideoLocation)
         slider.reloadData()
     }
 }
@@ -124,8 +160,7 @@ extension ViewController: SNSliderDataSource {
     }
     
     func slider(_ slider: SNSlider, slideAtIndex index: Int) -> SNFilter {
-        
-        return data[index]
+        return data[index] as! SNFilter
     }
     
     func startAtIndex(_ slider: SNSlider) -> Int {
@@ -147,6 +182,11 @@ extension ViewController: UIGestureRecognizerDelegate {
 extension ViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
+        if let movieURL = info[UIImagePickerControllerMediaURL] as? NSURL {
+            
+            // The user has selected a video
+            updateVideo(movieURL)
+        }
         
         if let pickedImage = info[UIImagePickerControllerOriginalImage] as? UIImage {
             
@@ -156,6 +196,7 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
                 updatePicture(image)
             }
         }
+
         
         dismiss(animated: true, completion: nil)
     }
